@@ -78,13 +78,13 @@ CLEAR_SCREEN:
         LD HL, SCREEN_BASE
         LD DE, SCREEN_BASE + 1
         LD BC, 6143
-        LD (HL), 224
+        LD (HL), 0              ; Clear bitmap to 0 (blank)
         LDIR                    ; Clear bitmap
         
         LD HL, ATTR_BASE
         LD DE, ATTR_BASE + 1
         LD BC, 767
-        LD (HL), 0x04           ; White ink on black paper
+        LD (HL), 0x38           ; White ink (7) on black paper (0), BRIGHT
         LDIR                    ; Clear attributes
         RET
 
@@ -111,12 +111,12 @@ DRAW_SPRITE:
         PUSH HL
         
         ; Check if sprite is active
-        LD A, (HL)
+        LD A, L
         ADD A, SPRITE_FLAGS
         LD L, A
         LD A, (HL)
-        AND FLAG_ACTIVE
         POP HL
+        AND FLAG_ACTIVE
         RET Z                   ; Return if not active
         
         PUSH HL
@@ -191,27 +191,37 @@ DRAW_SPRITE_BYTE:
 ; Input: D = Y coordinate (0-191)
 ;        E = X coordinate (0-255)
 ; Output: HL = screen memory address
+; The Spectrum screen layout is complex:
+; Bits of Y: 76543210
+; Screen addr high byte: 010YY YYY (Y bits 7-6, then Y bits 2-0)
+; Screen addr low byte: YYYYY XXX (Y bits 5-3, then X bits 7-3)
 ; ===============================================
 GET_SCREEN_ADDR:
-        LD A, D                 ; Get Y
-        AND 0xC0               ; Get bits 6-7
-        OR 0x40                ; Set base screen address
-        LD H, A
+        LD A, E                 ; X coordinate
+        SRL A                   ; Divide by 8 to get byte column
+        SRL A
+        SRL A
+        LD L, A                 ; L = X/8 (column 0-31)
+        
+        LD A, D                 ; Y coordinate
+        AND 0x07               ; Get pixel row within char (0-7)
+        RRCA                   ; Rotate into bits 7-5
+        RRCA
+        RRCA
+        OR L                   ; Combine with column
+        LD L, A                ; L now has low byte
+        
+        LD A, D                 ; Y coordinate again
+        AND 0x38               ; Get character row (bits 3-5 of Y)
+        LD H, A                ; Put in H temporarily
         
         LD A, D
-        AND 0x07               ; Get scanline within character
-        RRCA
-        RRCA
-        RRCA
-        OR E                   ; Add X byte position
+        AND 0xC0               ; Get Y bits 6-7
+        SRL A                   ; Shift right 3 times to get bits 3-4
         SRL A
         SRL A
-        SRL A
-        LD L, A
-        
-        LD A, D
-        AND 0x38               ; Get character row
-        ADD A, H
+        OR H                   ; Combine with character row
+        OR 0x40                ; Set base screen address (010xxxxx)
         LD H, A
         
         RET
@@ -221,12 +231,26 @@ GET_SCREEN_ADDR:
 ; ===============================================
 ; Input: DE = current screen address
 ; Output: DE = next scanline address
+; Must handle Spectrum's weird screen layout:
+; - Within a character cell, just increment H
+; - At bottom of character cell, jump to next row
 ; ===============================================
 NEXT_SCAN_LINE:
-        INC D                   ; Simple increment for now
-        ; This is simplified - proper version needs
-        ; to handle Spectrum's weird screen layout
-        ; For proof of concept this works for small sprites
+        INC D                   ; Move to next pixel row
+        LD A, D
+        AND 0x07               ; Check if we've crossed character boundary
+        RET NZ                  ; If not, we're done
+        
+        ; We've finished a character cell, move down to next character row
+        LD A, E
+        ADD A, 0x20            ; Add 32 to low byte (next char row)
+        LD E, A
+        RET NC                  ; If no carry, done
+        
+        ; Carried - move to next third of screen
+        LD A, D
+        ADD A, 0x08
+        LD D, A
         RET
 
 ; ===============================================
