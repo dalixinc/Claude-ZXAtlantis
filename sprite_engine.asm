@@ -95,7 +95,7 @@ INIT_SPRITES:
         ; Clear all sprite descriptors
         LD HL, SPRITE_TABLE
         LD DE, SPRITE_TABLE + 1
-        LD BC, (MAX_SPRITES * 8) - 1
+        LD BC, MAX_SPRITES * SPRITE_SIZE - 1
         LD (HL), 0
         LDIR
         RET
@@ -332,7 +332,8 @@ SPRITE_HEIGHT_TMP: DB 0
 
 ; Sprite table (can hold up to 16 sprites for now)
 MAX_SPRITES     EQU 16
-SPRITE_TABLE:   DS MAX_SPRITES * 8
+SPRITE_SIZE     EQU 8
+SPRITE_TABLE:   DS MAX_SPRITES * SPRITE_SIZE
 
 ; Test sprite graphic data (16x16 pixels = 32 bytes)
 ; Simple diver shape for testing
