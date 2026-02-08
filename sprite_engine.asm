@@ -78,13 +78,13 @@ CLEAR_SCREEN:
         LD HL, SCREEN_BASE
         LD DE, SCREEN_BASE + 1
         LD BC, 6143
-        LD (HL), 0
+        LD (HL), 224
         LDIR                    ; Clear bitmap
         
         LD HL, ATTR_BASE
         LD DE, ATTR_BASE + 1
         LD BC, 767
-        LD (HL), 0x07           ; White ink on black paper
+        LD (HL), 0x04           ; White ink on black paper
         LDIR                    ; Clear attributes
         RET
 
