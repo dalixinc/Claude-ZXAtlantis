@@ -1,0 +1,9 @@
+
+
+*.tap
+*.bin
+*.obj
+*.o
+build/
+*.bak
+*~
